@@ -26,8 +26,11 @@ if ( !exists("SCC") & file.exists(SCCfilename) ) {
 # - Search for "Mobile - On-Road" in SCC$IE.Sector seems best
 mvs <- SCC[grepl("Mobile - On-Road",SCC$EI.Sector),"SCC"]
 
+# Add Seattle King County:  53033
+# Add Washington DC: 11001
 # Subset on Baltimore and LA (by fips) then by SCC
-NEIs <- NEI[NEI$fips=='24510' | NEI$fips=="06037",]
+NEIs <- NEI[NEI$fips=='24510' | NEI$fips=='11001' | 
+    NEI$fips=='53033' | NEI$fips=="06037",]
 NEImv <- NEIs[NEIs$SCC %in% mvs,]
 
 # aggregate total Emissions by year 

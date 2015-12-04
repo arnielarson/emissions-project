@@ -17,7 +17,7 @@
 #   is representative of the total US 2.5 emissions.
 
 # Load databases if objects not found
-root<-"~/Documents/Coursera/exploratory/data"
+root<-"~/Documents/Coursera/jhsph/exploratory/data"
 NEIfilename <- paste0(root,"/summarySCC_PM25.rds")
 SCCfilename <- paste0(root,"/Source_Classification_Code.rds")
 if ( !exists("NEI") & file.exists(NEIfilename) ) {

@@ -1,0 +1,158 @@
+####Author: Arnie Larson
+####Title:  EPA Emissions Inventory Quick Data Analysis
+
+
+[Project Repository](https://github.com/arnielarson/emissions-project)
+
+Part of an [Exploraroty Data Analysis](https://class.coursera.org/exdata-033) course taught by [Roger Peng](http://www.biostat.jhsph.edu/~rpeng/)
+ 
+####Overview
+This analysis uses data from the EPA [National Emissions Inventory](http://www3.epa.gov/ttnchie1/eiinformation.html),
+with pollutants, emissions, sources, year.  The data was curated and provided by Roger Peng as part of his [Exploraroty Data Analysis](https://class.coursera.org/exdata-033) course, and included [PM2.5](http://www.airinfonow.org/html/ed_particulate.html) type emissions data, (air pollutants that are less than 2.5 microns) from 1998 to 2011.  A second database was included to provide more detailed infromation for each emission measurement included in the inventory.  The goals for the analysis were to create exploratory graphs to answer the questions:
+
+
+####The NEI Data
+The data provided was currated and quite clean in an rds format.
+
+```{r load-data}
+root <- "~/Documents/Coursera/jhsph/exploratory/data"
+NEI <- readRDS(paste0(root,"/summarySCC_PM25.rds"))
+SCC <- readRDS(paste0(root,"/Source_Classification_Code.rds"))
+```
+
+
+The SCC database contains metadata for the types of observations, and can be joined on the SCC key.  I merge the Sector and Data Categories from the SCC database into the NEI database.  This is a fairly time consuming operation.
+
+```{r merge}
+# Merge in the Sector and Data Category variables
+NEI<-merge(NEI,SCC[,c("SCC","EI.Sector","Data.Category")],by="SCC")
+```
+
+A summary of the NEI data:
+
+```{r summary}
+summary(NEI)
+```
+
+This National Emissions Inventory data set is just PM 2.5 Emissions measurements from disparate sources between 1999 and 2008.  Note that there are no negative Emissions values, and no NA's.  It's pretty clean data.  The number of observations made each year seems to be increasing.
+
+```{r exploratory-plotting, fig.width=8, fig.height=6}
+library(ggplot2)
+qplot(factor(year), fill=Data.Category, data=NEI, ylab="Number of Observations",xlab="Year",main="NEI PM2.5 Observations")
+
+```
+
+Also from the summary notice that the maximum emission measurement is ~6 orders of magnitude larger than the mean and median.  Apparently the data is very right skewed, probaboy a power law distribution.  Is this reasonable?  First, lets just count frequency of observations in various segments, for measurements from 0 on up.
+
+```{r counts}
+length(NEI[NEI$Emissions<=1,]$Emissions)
+length(NEI[NEI$Emissions>1 & NEI$Emissions<=10,]$Emissions)
+length(NEI[NEI$Emissions>10 & NEI$Emissions<=100,]$Emissions)
+length(NEI[NEI$Emissions>100 & NEI$Emissions<=1000,]$Emissions)
+length(NEI[NEI$Emissions>1000,]$Emissions)
+```
+
+We can also look at a density estimation for each of these segments.  It appears to be some form of a power law distribution with a long tail.
+
+```{r density-plotting, fig.width=8, fig.height=6}
+plot(density(NEI[NEI$Emissions<=1,"Emissions"]), xlab="PM2.5 Emissions Observations (tons)",main="Density Estimation for PM2.5: 0 to 1 tons")
+plot(density(NEI[NEI$Emissions<=10 & NEI$Emissions>1,"Emissions"]), xlab="PM2.5 Emissions Observations (tons)",main="Density Estimation for PM2.5: 1 to 10 tons")
+plot(density(NEI[NEI$Emissions<=100 & NEI$Emissions>10,"Emissions"]), xlab="PM2.5 Emissions Observations (tons)",main="Density Estimation for PM2.5: 10 to 100 tons")
+plot(density(NEI[NEI$Emissions<=1000 & NEI$Emissions>100,"Emissions"]), xlab="PM2.5 Emissions Observations (tons)",main="Density Estimation for PM2.5: 100 to 1000 tons")
+plot(density(NEI[NEI$Emissions<=10000 & NEI$Emissions>1000,"Emissions"]), xlab="PM2.5 Emissions Observations (tons)",main="Density Estimation for PM2.5: 1000 to 10000 tons")
+plot(density(NEI[NEI$Emissions>10000 ,"Emissions"]), xlab="PM2.5 Emissions Observations (tons)",main="Density Estimation for PM2.5: 10000 tons and higher")
+```
+
+What is giving the largest emissions observations?  Let's try to find out by subsetting, sorting and then querying the SCC database.
+
+```{r biggest-emitters}
+NEIbig<-NEI[NEI$Emissions>10000,]
+NEIbig[order(NEIbig$Emissions, decreasing=T),c("Emissions","SCC")]
+```
+
+Notice that only a few SCC's are responsible for the largest observations, and they are:
+
+```{r biggest-emitters-2}
+sccs<-unique(NEIbig[order(NEIbig$Emissions, decreasing=T),"SCC"][1:20])
+SCC[SCC$SCC %in% sccs, c("SCC","Data.Category","EI.Sector")]
+```
+
+The large emitters are coming from specific and sensbible categories.  The four largest PM2.5 observations are from wildfire events.  Interesting.    
+
+The NEI data also has 59 unique sector categories.
+
+```{r sectors}
+unique(SCC$EI.Sector)
+```
+
+So that's an overview of what's in the NEI dataset.
+
+####A Few Data Analysis Questions
+
+Let's ask and try to answer some fairly basic questions about this data.  Fist, are there trends in the total US emissions per year?  We could break this down by category or sector.  There does appear to be an overal downard trend of the total over the four aggregated time slices.  (I'm just going to sum the data.  I will not try to figure out if the sum is actually a representative statistic.)
+
+Now lets look for any trends in the aggregated Emissions data.
+
+```{r trends}
+NEItotal<-aggregate(Emissions ~ year + Data.Category, NEI, sum)
+qplot(factor(year), Emissions, fill=Data.Category, data=NEItotal, geom="bar", 
+      stat="identity", xlab="PM2.5 Emissions (in tons)", ylab="Year", main="Total PM2.5 Emissions")
+```
+
+Similarly we can look at emissions trends for any area which can be selected on fips.  E.g for Baltimore with fips 24510, and Seattle with fips 53033.
+
+```{r city-trends}
+NEIcities<-aggregate(Emissions ~ year + Data.Category + fips, 
+                     NEI[NEI$fips=='24510' | NEI$fips=='53033',], sum)
+qplot(factor(year), Emissions, data=NEIcities, facets=.~fips, fill=Data.Category, geom="bar", stat="Identity",  ylab="Emissions (in tons)", xlab="Year", 
+      main="Seattle and Baltimore PM2.5 Emissions")
+```
+
+Interesting, there are qualitative differences in the PM2.5 emissions in these two areas.  What's going on with the Nonpoint sources in Seattle?  Drilling down into the Nonpoint sources, it appears that wood burning stoves are a primary source for the increase in the 2008 emissions.
+
+```{r seattle-trends}
+NEIseattleLNP<-aggregate(Emissions ~ year + EI.Sector, 
+      NEI[NEI$fips=='53033' & NEI$Data.Category=='Nonpoint' & NEI$Emissions>50,], sum)
+q<-qplot(factor(EI.Sector),Emissions, data=NEIseattleLNP, geom="bar",stat="Identity", facets=year~.,
+      fill=EI.Sector, ylab="Emissions (in tons)", xlab="Year", 
+      main="Seattle Nonpoint PM2.5 Emissions")
+q+theme(axis.text.x=element_text(angle=60, hjust=1))
+```
+
+
+What about emissions for "Coal Combustion related sources"?  We can find sources from the SCC database that match this query, and use those to subset the data, and see that there is likely a downward trend for coal related sources.
+
+```{r coal-trends}
+# I found this to be a reasonable query of the SCC database
+coalSCCs <- SCC[grepl("Coal",SCC$Short.Name),]
+coalSCCs <- coalSCCs[grepl("Combustion",coalSCCs$SCC.Level.One),"SCC"]
+# Subset the NEI data then aggregate on year
+NEIcoal <- NEI[NEI$SCC %in% coalSCCs,]
+NEIcoaltotal <- aggregate(Emissions ~ year + Data.Category, data=NEIcoal, sum)
+qplot(factor(year), Emissions, fill=Data.Category, data=NEIcoaltotal, geom="bar", 
+      stat="identity", ylab="Emissions (in tons)", xlab="Year", 
+      main="Coal Combustion PM2.5 Emissions")
+```
+
+What about trends in motor vehicle sources?  Selecting on road motor vehicle sources can be done in a single simple query to the SCC Database.  Here I compare a few different FIPS.
+Los Angelas is 06037, Baltimore is 24510, Seattle is 53033 and DC is 11001.
+
+```{r motor-vehicle-trends}
+# Want to select on road motor vehicle emissions sources
+mvs <- SCC[grepl("Mobile - On-Road",SCC$EI.Sector),"SCC"]
+# Subset by fips, then SCC's
+NEImv <- NEI[NEI$fips=='24510' | NEI$fips=='11001' |  
+    NEI$fips=='53033' | NEI$fips=="06037",]
+NEImv <- NEImv[NEImv$SCC %in% mvs,]
+
+# aggregate total Emissions by year and fips
+NEImvtotal <- aggregate(Emissions ~ year + fips, NEImv, sum)
+
+qplot(factor(year),Emissions, data=NEImvtotal, fill=fips, geom="bar", 
+      stat="identity",position="dodge",ylab="Emissions PM2.5 (tons)",
+      xlab="Year", main="Motor Vehicle PM2.5 Emissions")
+
+```
+
+####The Takeaway
+The [National Emissions Inventory](http://www3.epa.gov/ttnchie1/eiinformation.html) data is interesting.  It's amazing how much data we collect in our world today, and this is only expected to grow.  I hope that data like this will be used ultimately to make better informed policy decisions which will make our world a better place.  As an assignment for this [Data Analysis](https://class.coursera.org/exdata-033) course, it was an appropriately challenging and a really fun data set to dig into.  I ultimately found the barplot's from ggplot2 to offer the best and easiest visualization for these simple questions.
