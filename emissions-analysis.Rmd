@@ -1,14 +1,16 @@
-####Author: Arnie Larson
-####Title:  EPA Emissions Inventory Quick Data Analysis
+## EPA Emissions Inventory Exploratory Analysis
 
+#####Author: Arnie Larson
 
-[Project Repository](https://github.com/arnielarson/emissions-project)
+#####Date:  12/01/2015, Updated (12/08/2015)
 
-Part of an [Exploraroty Data Analysis](https://class.coursera.org/exdata-033) course taught by [Roger Peng](http://www.biostat.jhsph.edu/~rpeng/)
- 
+#####[Project Repository](https://github.com/arnielarson/emissions-project)
+
+-------------------
+
 ####Overview
 This analysis uses data from the EPA [National Emissions Inventory](http://www3.epa.gov/ttnchie1/eiinformation.html),
-with pollutants, emissions, sources, year.  The data was curated and provided by Roger Peng as part of his [Exploraroty Data Analysis](https://class.coursera.org/exdata-033) course, and included [PM2.5](http://www.airinfonow.org/html/ed_particulate.html) type emissions data, (air pollutants that are less than 2.5 microns) from 1998 to 2011.  A second database was included to provide more detailed infromation for each emission measurement included in the inventory.  The goals for the analysis were to create exploratory graphs to answer the questions:
+with pollutants, emissions, sources, year.  The data was curated and provided as part of an  [Exploraroty Data Analysis](https://class.coursera.org/exdata-033) course taught by [Roger Peng](http://www.biostat.jhsph.edu/~rpeng/).  The data includs [PM2.5](http://www.airinfonow.org/html/ed_particulate.html) type emissions data, (air pollutants that are less than 2.5 microns) from 1998 to 2011.  A second database was included to provide more detailed information for each emission measurement included in the inventory.  The initial goals for the analysis were to create simple exploratory graphs..
 
 
 ####The NEI Data
