@@ -36,7 +36,7 @@ A summary of the NEI data:
 summary(NEI)
 ```
 
-This National Emissions Inventory data set is just PM 2.5 Emissions measurements from disparate sources between 1999 and 2008.  Note that there are no negative Emissions values, and no NA's.  It's pretty clean data.  The number of observations made each year seems to be increasing.
+This National Emissions Inventory data set is just PM 2.5 Emissions measurements from disparate sources between 1999 and 2008.  Note that there are no negative Emissions values, and no NA's.  It's pretty clean data.  The number of observations made each year seems to be increasing.  If we segment the histogram on the Data Category, we see the increase in observations for the different types.  The Point type observations increased roughly 5-fold in 2008.
 
 ```{r exploratory-plotting, fig.width=8, fig.height=6}
 library(ggplot2)
@@ -44,19 +44,19 @@ qplot(factor(year), fill=Data.Category, data=NEI, ylab="Number of Observations",
 
 ```
 
-Also from the summary notice that the maximum emission measurement is ~6 orders of magnitude larger than the mean and median.  Apparently the data is very right skewed, probaboy a power law distribution.  Is this reasonable?  First, lets just count frequency of observations in various segments, for measurements from 0 on up.
+From the summary notice that the maximum emission measurement is ~6 orders of magnitude larger than the mean and median.  Apparently the data is very right skewed, probaboy a power law distribution.  Is this reasonable?  First, lets just count frequency of observations in various segments, for measurements from 0 on up.
 
 ```{r counts}
-length(NEI[NEI$Emissions<=1,]$Emissions)
-length(NEI[NEI$Emissions>1 & NEI$Emissions<=10,]$Emissions)
-length(NEI[NEI$Emissions>10 & NEI$Emissions<=100,]$Emissions)
-length(NEI[NEI$Emissions>100 & NEI$Emissions<=1000,]$Emissions)
-length(NEI[NEI$Emissions>1000,]$Emissions)
+sum(NEI$Emissions<=1)
+sum(NEI$Emissions>1 & NEI$Emissions<=10)
+sum(NEI$Emissions>10 & NEI$Emissions<=100)
+sum(NEI$Emissions>100 & NEI$Emissions<=1000)
+sum(NEI$Emissions>1000)
 ```
 
-We can also look at a density estimation for each of these segments.  It appears to be some form of a power law distribution with a long tail.
+We can also look at a density estimation for each of these segments.  The distribution for each of these segments takes the form of a power law distribution with a long tail.
 
-```{r density-plotting, fig.width=8, fig.height=6}
+```{r density-plotting, fig.width=6, fig.height=4}
 plot(density(NEI[NEI$Emissions<=1,"Emissions"]), xlab="PM2.5 Emissions Observations (tons)",main="Density Estimation for PM2.5: 0 to 1 tons")
 plot(density(NEI[NEI$Emissions<=10 & NEI$Emissions>1,"Emissions"]), xlab="PM2.5 Emissions Observations (tons)",main="Density Estimation for PM2.5: 1 to 10 tons")
 plot(density(NEI[NEI$Emissions<=100 & NEI$Emissions>10,"Emissions"]), xlab="PM2.5 Emissions Observations (tons)",main="Density Estimation for PM2.5: 10 to 100 tons")
@@ -69,7 +69,7 @@ What is giving the largest emissions observations?  Let's try to find out by sub
 
 ```{r biggest-emitters}
 NEIbig<-NEI[NEI$Emissions>10000,]
-NEIbig[order(NEIbig$Emissions, decreasing=T),c("Emissions","SCC")]
+head(NEIbig[order(NEIbig$Emissions, decreasing=T),c("Emissions","SCC")],10)
 ```
 
 Notice that only a few SCC's are responsible for the largest observations, and they are:
@@ -81,17 +81,32 @@ SCC[SCC$SCC %in% sccs, c("SCC","Data.Category","EI.Sector")]
 
 The large emitters are coming from specific and sensbible categories.  The four largest PM2.5 observations are from wildfire events.  Interesting.    
 
-The NEI data also has 59 unique sector categories.
+The NEI data also has 59 unique sector categories which can also be used to segment the data.
 
 ```{r sectors}
 unique(SCC$EI.Sector)
 ```
 
-So that's an overview of what's in the NEI dataset.
 
-####A Few Data Analysis Questions
+For instance, we can drill down to the sector level and investigate the increases in Point Type measurements in 2008.  Segmenting on year and sector and plotting a histogram vs. Sector.  Unfortunately I'm not certain what NEC is in the Industrial Process Sector.  My best guess is that it's the [National Electric Code](https://en.wikipedia.org/wiki/National_Electrical_Code) pertaining to installation of electric wiring.
 
-Let's ask and try to answer some fairly basic questions about this data.  Fist, are there trends in the total US emissions per year?  We could break this down by category or sector.  There does appear to be an overal downard trend of the total over the four aggregated time slices.  (I'm just going to sum the data.  I will not try to figure out if the sum is actually a representative statistic.)
+```{r exploratory-plotting-point}
+library(plyr)
+NEIp<-NEI[NEI$Data.Category=="Point", ] # Subset by Point
+# Here I remove the less used Sectors for clarity when plotting
+SF<-count(NEIp,"EI.Sector") 
+Sectors<-SF[SF$freq>2000,"EI.Sector"] 
+NEIp<-droplevels(NEIp[NEIp$EI.Sector %in% Sectors,])
+q<-qplot(factor(EI.Sector),data=NEIp,fill=factor(year),
+         ylab="Frequency",main="Point Type Emissions Measurements by Sector")
+q+theme(axis.title.x=element_blank(),axis.text.x=element_text(angle=60, hjust=1))
+
+```
+
+
+####Exploratory Analysis Questions
+
+Let's ask and try to answer some fairly basic questions about this data.  First, are there any obvious trends in the total US emissions per year?  We could break this down by category or sector.  There does appear to be an overal downard trend of the total over the four aggregated time slices.   (Note:  I'm just going to sum the data.  I will not try to figure out if the sum is a representative statistic.)  There also are differences from Event type emissions
 
 Now lets look for any trends in the aggregated Emissions data.
 
@@ -101,25 +116,49 @@ qplot(factor(year), Emissions, fill=Data.Category, data=NEItotal, geom="bar",
       stat="identity", xlab="PM2.5 Emissions (in tons)", ylab="Year", main="Total PM2.5 Emissions")
 ```
 
-Similarly we can look at emissions trends for any area which can be selected on fips.  E.g for Baltimore with fips 24510, and Seattle with fips 53033.
+It turns out that all of the event type emissions are coming for wildfires.  And, oddly enough, there are no wildfire events in 2008.  Clearly, even this "clean data" has some serious issues.  Some googling will show that the EPA Emissions Inventory did cover wildfires in 2008.
+
+```{r event-anomoly}
+NEIe<-droplevels(NEI[NEI$Data.Category=="Event",])
+unique(NEIe$year)
+str(NEIe)
+```
+
+Next we drill into emissions trends for areas which can be selected on fips.  E.g for Baltimore with fips 24510, and Seattle with fips 53033.  There do appear to be qualitative differences in the PM2.5 emissions trends from these two areas.
 
 ```{r city-trends}
 NEIcities<-aggregate(Emissions ~ year + Data.Category + fips, 
                      NEI[NEI$fips=='24510' | NEI$fips=='53033',], sum)
 qplot(factor(year), Emissions, data=NEIcities, facets=.~fips, fill=Data.Category, geom="bar", stat="Identity",  ylab="Emissions (in tons)", xlab="Year", 
-      main="Seattle and Baltimore PM2.5 Emissions")
+      main="Baltimore (24510) and Seattle (53033) PM2.5 Emissions")
 ```
 
-Interesting, there are qualitative differences in the PM2.5 emissions in these two areas.  What's going on with the Nonpoint sources in Seattle?  Drilling down into the Nonpoint sources, it appears that wood burning stoves are a primary source for the increase in the 2008 emissions.
+What's going on with the Nonpoint emissions sources in Seattle?  
+Drilling down into the Nonpoint sources for Seattle and segmenting by Sector, it appears that wood burning stoves are a primary source for increases in the 2008 emissions.
 
-```{r seattle-trends}
-NEIseattleLNP<-aggregate(Emissions ~ year + EI.Sector, 
-      NEI[NEI$fips=='53033' & NEI$Data.Category=='Nonpoint' & NEI$Emissions>50,], sum)
-q<-qplot(factor(EI.Sector),Emissions, data=NEIseattleLNP, geom="bar",stat="Identity", facets=year~.,
-      fill=EI.Sector, ylab="Emissions (in tons)", xlab="Year", 
+```{r seattle-trends, fig.width=8, fig.height=8}
+NEIsea<-aggregate(Emissions ~ year + EI.Sector, 
+      NEI[NEI$fips=='53033' & NEI$Data.Category=='Nonpoint',], sum)
+q<-qplot(factor(EI.Sector),Emissions, data=NEIsea[NEIsea$Emissions>50,], 
+      geom="bar",stat="Identity", facets=year~.,
+      fill=EI.Sector, ylab="Emissions (in tons)", 
       main="Seattle Nonpoint PM2.5 Emissions")
-q+theme(axis.text.x=element_text(angle=60, hjust=1))
+q+theme(axis.title.x=element_blank(),axis.text.x=element_text(angle=60, hjust=1))
 ```
+
+
+What's going on with Point sources for Baltimore?   Drilling down into the Point sources for Baltimore and segmenting on Sector, it seems the NEC Industrial Process generally dominates the Point Emissions.  That and Natural Gas Industrial Boilers apparentally are the cause for the Point Emissions increases in 2005.
+
+```{r baltimore-trends, fig.width=8, fig.height=8}
+NEIbm<-aggregate(Emissions ~ year + EI.Sector, 
+      NEI[NEI$fips=='24510' & NEI$Data.Category=='Point',], sum)
+q<-qplot(factor(EI.Sector),Emissions, data=NEIbm[NEIbm$Emissions>2,], 
+      geom="bar",stat="Identity", facets=year~.,
+      fill=EI.Sector, ylab="Emissions (in tons)", 
+      main="Baltimore Point PM2.5 Emissions")
+q+theme(axis.title.x=element_blank(),axis.text.x=element_text(angle=60, hjust=1))
+```
+
 
 
 What about emissions for "Coal Combustion related sources"?  We can find sources from the SCC database that match this query, and use those to subset the data, and see that there is likely a downward trend for coal related sources.

@@ -11,7 +11,7 @@
 NEIfilename <- "../data/summarySCC_PM25.rds"
 SCCfilename <- "../data/Source_Classification_Code.rds"
 if ( !exists("NEI") & file.exists(NEIfilename) ) {
-    assign("NEI",NEIfilename, envir=.GlobalEnv)
+    assign("NEI",readRDS(NEIfilename), envir=.GlobalEnv)
 }
 if ( !exists("SCC") & file.exists(SCCfilename) ) {
     assign("SCC",readRDS(SCCfilename), envir=.GlobalEnv)
@@ -22,10 +22,10 @@ if ( !exists("SCC") & file.exists(SCCfilename) ) {
 # load NEI and SCC database 
 load <- function(force=FALSE){
     if (force | !exists("NEI")) {
-        assign("NEI","summarySCC_PM25.rds", envir=.GlobalEnv)
+        assign("NEI",readRDS(NEIfilename), envir=.GlobalEnv)
     }
     if (force | !exists("SCC")) {
-        assign("SCC",readRDS("Source_Classification_Code.rds"), envir=.GlobalEnv)
+        assign("SCC",readRDS(SCCfilename), envir=.GlobalEnv)
     }
 }
 
